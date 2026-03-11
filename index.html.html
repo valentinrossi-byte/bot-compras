@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BOT COMPRAS · IA</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+:root {
+  --bg:       #070810;
+  --bg2:      #0d0f1e;
+  --bg3:      #131629;
+  --border:   #1e2440;
+  --border2:  #2a3158;
+  --text:     #c8d0f0;
+  --muted:    #4a5278;
+  --accent:   #5b7fff;
+  --green:    #22d87a;
+  --red:      #ff4d6a;
+  --yellow:   #ffc84a;
+  --purple:   #a78bfa;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;min-height:100vh;overflow-x:hidden}
+
+/* Animated grid bg */
+body::before{content:'';position:fixed;inset:0;
+  background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);
+  background-size:40px 40px;opacity:0.3;pointer-events:none;z-index:0}
+
+#app{position:relative;z-index:1;max-width:1000px;margin:0 auto;padding:1.5rem}
+
+/* Header */
+.hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:2rem;flex-wrap:wrap;gap:1rem}
+.hdr-left h1{font-family:'Syne',sans-serif;font-size:32px;font-weight:800;letter-spacing:-0.04em;line-height:1}
+.hdr-left h1 .bot{color:var(--accent)}
+.hdr-left h1 .compras{color:var(--text)}
+.hdr-sub{font-size:10px;color:var(--muted);letter-spacing:0.25em;text-transform:uppercase;margin-top:6px}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block;margin-right:6px;
+  box-shadow:0 0 8px var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.6;transform:scale(0.8)}}
+
+/* API key input */
+.api-section{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:1.2rem;margin-bottom:1.2rem}
+.api-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.15em;margin-bottom:8px}
+.api-row{display:flex;gap:8px;flex-wrap:wrap}
+.api-input{flex:1;min-width:200px;background:var(--bg);border:1px solid var(--border2);color:var(--text);
+  padding:9px 14px;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:12px}
+.api-input:focus{outline:none;border-color:var(--accent)}
+.api-note{font-size:10px;color:var(--muted);margin-top:6px;line-height:1.6}
+.api-note a{color:var(--accent);text-decoration:none}
+
+/* Upload */
+#upload-zone{border:2px dashed var(--border2);border-radius:14px;padding:2.5rem 2rem;
+  text-align:center;cursor:pointer;transition:all 0.2s;margin-bottom:1.2rem}
+#upload-zone:hover,#upload-zone.drag{border-color:var(--accent);background:var(--bg2)}
+#upload-zone h2{font-family:'Syne',sans-serif;font-size:18px;color:var(--text);margin-bottom:6px}
+#upload-zone p{font-size:11px;color:var(--muted);line-height:1.8}
+#file-input{display:none}
+
+/* Buttons */
+.btn{background:var(--accent);color:#fff;border:none;padding:9px 20px;border-radius:8px;
+  font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.15s}
+.btn:hover{background:#7b96ff;transform:translateY(-1px)}
+.btn:disabled{opacity:0.4;cursor:default;transform:none}
+.btn-ghost{background:transparent;border:1px solid var(--border2);color:var(--muted);
+  padding:7px 14px;border-radius:7px;font-family:'JetBrains Mono',monospace;font-size:11px;cursor:pointer}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+.btn-red{background:#ff4d6a22;border:1px solid #ff4d6a44;color:var(--red)}
+.btn-red:hover{background:#ff4d6a33}
+.btn-green{background:#22d87a22;border:1px solid #22d87a44;color:var(--green)}
+.btn-green:hover{background:#22d87a33}
+
+/* Stats */
+.stats{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1.2rem}
+.stat{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;flex:1;min-width:110px}
+.stat-val{font-family:'Syne',sans-serif;font-size:22px;font-weight:800}
+.stat-lbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-top:2px}
+
+/* Controls */
+.controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem;align-items:center}
+input[type=text]{background:var(--bg2);border:1px solid var(--border);color:var(--text);
+  padding:8px 12px;border-radius:7px;font-family:'JetBrains Mono',monospace;font-size:11px;flex:1;min-width:160px}
+input[type=text]:focus{outline:none;border-color:var(--accent)}
+select{background:var(--bg2);border:1px solid var(--border);color:var(--text);
+  padding:8px 10px;border-radius:7px;font-family:'JetBrains Mono',monospace;font-size:11px;cursor:pointer}
+
+/* Table */
+.table-wrap{border-radius:10px;border:1px solid var(--border);overflow:hidden;overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:11px}
+thead th{background:var(--bg2);padding:9px 12px;text-align:left;font-size:9px;
+  color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;white-space:nowrap;
+  border-bottom:1px solid var(--border);position:sticky;top:0;z-index:2}
+tbody tr{border-bottom:1px solid #0d0f1e;cursor:pointer;transition:background 0.1s}
+tbody tr:hover{background:#131629}
+td{padding:8px 12px;vertical-align:middle}
+.sku-c{color:var(--muted);font-size:10px;white-space:nowrap}
+.name-c{color:var(--text);max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.num{text-align:right;color:var(--muted)}
+.sv-c{color:var(--yellow);font-weight:500;text-align:right}
+.buy-yes{color:var(--green);font-weight:700;font-size:13px;text-align:right}
+.buy-no{color:#ff4d6a33;font-size:10px;text-align:right}
+.badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:9px;font-weight:700;letter-spacing:0.05em}
+.b-buy{background:#052e16;color:var(--green);border:1px solid #166534}
+.b-no{background:#1a050a;color:#ff4d6a55;border:1px solid #7f1d1d22}
+.b-st{background:var(--bg3);color:var(--muted);border:1px solid var(--border);font-size:9px}
+
+/* AI badge on row */
+.ai-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:4px;font-size:9px;font-weight:700}
+.ai-high{background:#052e16;color:var(--green);border:1px solid #166534}
+.ai-med{background:#1a1205;color:var(--yellow);border:1px solid #78450a}
+.ai-low{background:#1a050a;color:var(--red);border:1px solid #7f1d1d}
+.ai-pending{background:var(--bg3);color:var(--muted);border:1px solid var(--border)}
+.ai-loading{background:#0d0f1e;color:var(--accent);border:1px solid #1e2440}
+
+/* Pager */
+.pager{display:flex;align-items:center;gap:5px;margin-top:1rem;justify-content:center;flex-wrap:wrap}
+.pager button{background:var(--bg2);border:1px solid var(--border);color:var(--muted);
+  padding:5px 10px;border-radius:5px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:10px}
+.pager button:hover{border-color:var(--accent);color:var(--accent)}
+.pager button.active{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:700}
+.pager button:disabled{opacity:0.3;cursor:default}
+.pager-info{font-size:10px;color:var(--muted)}
+
+/* Analyze bar */
+.analyze-bar{background:var(--bg2);border:1px solid var(--border);border-radius:10px;
+  padding:1rem;margin-bottom:1rem;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.analyze-bar .info{flex:1;font-size:11px;color:var(--muted);line-height:1.6}
+.analyze-bar .info b{color:var(--text)}
+.progress-wrap{width:100%;height:4px;background:var(--border);border-radius:99px;overflow:hidden;margin-top:4px}
+.progress-bar{height:100%;background:linear-gradient(90deg,var(--accent),var(--purple));
+  border-radius:99px;transition:width 0.3s;width:0%}
+
+/* Modal */
+#modal{display:none;position:fixed;inset:0;background:#00000099;z-index:100;
+  align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(4px)}
+#modal.open{display:flex}
+.mbox{background:var(--bg2);border:1px solid var(--border2);border-radius:16px;
+  padding:1.5rem;max-width:620px;width:100%;max-height:92vh;overflow-y:auto;
+  box-shadow:0 0 60px #5b7fff22}
+.mclose{float:right;background:none;border:none;color:var(--muted);font-size:18px;
+  cursor:pointer;font-family:'JetBrains Mono',monospace;line-height:1;padding:2px 6px;border-radius:4px}
+.mclose:hover{background:var(--border);color:var(--text)}
+
+/* Pillar cards in modal */
+.pillars{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
+.pillar{background:var(--bg3);border-radius:8px;padding:11px;border-left:3px solid}
+.ptitle{font-family:'Syne',sans-serif;font-size:11px;font-weight:700}
+.pval{font-size:18px;font-weight:800;margin-top:3px;font-family:'Syne',sans-serif}
+.psub{font-size:9px;color:var(--muted);margin-top:2px}
+
+/* AI analysis box */
+.ai-box{background:var(--bg);border:1px solid var(--border2);border-radius:10px;padding:14px;margin-top:12px}
+.ai-box-header{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.ai-box-title{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:var(--accent)}
+.ai-thinking{color:var(--muted);font-size:11px;font-style:italic}
+.ai-thinking::after{content:'...';animation:dots 1.2s infinite}
+@keyframes dots{0%{content:''}33%{content:'.'}66%{content:'..'}100%{content:'...'}}
+
+.ai-section{margin-bottom:10px}
+.ai-section-label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.15em;margin-bottom:4px}
+.ai-section-text{font-size:11px;color:var(--text);line-height:1.7;background:var(--bg2);
+  padding:8px 10px;border-radius:6px;border-left:2px solid var(--border2)}
+
+.conf-bar{display:flex;align-items:center;gap:8px;margin-top:8px}
+.conf-label{font-size:10px;color:var(--muted);width:50px}
+.conf-track{flex:1;height:6px;background:var(--border);border-radius:99px;overflow:hidden}
+.conf-fill{height:100%;border-radius:99px;transition:width 0.6s}
+.conf-val{font-size:11px;font-weight:700;width:40px;text-align:right}
+
+.anomaly-chip{display:inline-flex;align-items:center;gap:4px;background:#1a0a05;
+  border:1px solid #ff6b3522;color:#ff8c5a;border-radius:4px;padding:3px 8px;
+  font-size:10px;margin:2px;line-height:1.4}
+
+.sv-compare{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin:10px 0}
+.sv-card{background:var(--bg3);border-radius:6px;padding:8px;text-align:center;border:1px solid var(--border)}
+.sv-card.chosen{border-color:var(--green);background:#052e1688}
+.sv-card.excluded{border-color:#ff4d6a22;opacity:0.5}
+.sv-name{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px}
+.sv-num{font-size:16px;font-weight:800;font-family:'Syne',sans-serif}
+.sv-tag{font-size:9px;font-weight:700;margin-top:2px}
+
+/* Chart */
+.chart-box{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;margin-top:10px}
+.chart-lbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px}
+svg text{font-family:'JetBrains Mono',monospace}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Header -->
+  <div class="hdr">
+    <div class="hdr-left">
+      <h1><span class="bot">BOT</span><span class="compras"> COMPRAS</span></h1>
+      <div class="hdr-sub"><span class="status-dot"></span>IA · Análisis autónomo de inventario FBA</div>
+    </div>
+    <button class="btn-ghost" id="btn-reset" onclick="resetApp()" style="display:none">↩ Nuevo CSV</button>
+  </div>
+
+  <!-- API Key -->
+  <div class="api-section">
+    <div class="api-label">🔑 Anthropic API Key</div>
+    <div class="api-row">
+      <input type="password" class="api-input" id="api-key" placeholder="sk-ant-api03-...">
+      <button class="btn" onclick="saveKey()">Guardar</button>
+    </div>
+    <div class="api-note">
+      Tu key se guarda solo en este navegador (localStorage). Nunca se envía a ningún servidor nuestro.<br>
+      Conseguí tu key en <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> → API Keys.
+    </div>
+  </div>
+
+  <!-- Upload -->
+  <div id="upload-zone"
+    onclick="document.getElementById('file-input').click()"
+    ondragover="event.preventDefault();this.classList.add('drag')"
+    ondragleave="this.classList.remove('drag')"
+    ondrop="handleDrop(event)">
+    <h2>📂 Cargá tu CSV</h2>
+    <p>Arrastrá o hacé click para seleccionar <b>compras.csv</b><br>
+    Procesado 100% en tu navegador · Encoding ISO-8859 o UTF-8</p>
+    <button class="btn" style="margin-top:14px" onclick="event.stopPropagation();document.getElementById('file-input').click()">
+      Seleccionar archivo
+    </button>
+    <input type="file" id="file-input" accept=".csv,.txt" onchange="handleFile(this.files[0])">
+  </div>
+
+  <!-- Main UI -->
+  <div id="main" style="display:none">
+
+    <!-- Stats -->
+    <div class="stats">
+      <div class="stat"><div class="stat-val" id="s-total" style="color:var(--accent)">—</div><div class="stat-lbl">Total SKUs</div></div>
+      <div class="stat"><div class="stat-val" id="s-buy" style="color:var(--green)">—</div><div class="stat-lbl">A comprar</div></div>
+      <div class="stat"><div class="stat-val" id="s-units" style="color:var(--purple)">—</div><div class="stat-lbl">Unidades</div></div>
+      <div class="stat"><div class="stat-val" id="s-analyzed" style="color:var(--yellow)">0</div><div class="stat-lbl">Analizados IA</div></div>
+      <div class="stat"><div class="stat-val" id="s-nobuy" style="color:var(--red)">—</div><div class="stat-lbl">No comprar</div></div>
+    </div>
+
+    <!-- Analyze bar -->
+    <div class="analyze-bar">
+      <div class="info">
+        <b>Bot de análisis IA</b> — Analizá SKUs individuales haciendo click en una fila,
+        o analizá todos los que "debería comprar" de una sola vez.<br>
+        <div class="progress-wrap" id="progress-wrap" style="display:none">
+          <div class="progress-bar" id="progress-bar"></div>
+        </div>
+        <span id="progress-text" style="font-size:10px;color:var(--accent)"></span>
+      </div>
+      <button class="btn btn-green" id="btn-analyze-all" onclick="analyzeAll()">
+        ⚡ Analizar todos (COMPRAR)
+      </button>
+      <button class="btn btn-ghost" id="btn-stop" onclick="stopAnalysis()" style="display:none">⏹ Detener</button>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+      <input type="text" id="search" placeholder="Buscar SKU o nombre...">
+      <select id="f-dec">
+        <option value="">Todos</option>
+        <option value="comprar">Solo COMPRAR</option>
+        <option value="no">Solo NO COMPRAR</option>
+      </select>
+      <select id="f-st"><option value="">Todos los estados</option></select>
+      <select id="f-ai">
+        <option value="">Toda confianza IA</option>
+        <option value="ALTA">IA: Alta</option>
+        <option value="MEDIA">IA: Media</option>
+        <option value="BAJA">IA: Baja</option>
+        <option value="pending">Sin analizar</option>
+      </select>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>SKU</th>
+            <th>Producto</th>
+            <th style="text-align:right">Stock</th>
+            <th style="text-align:right">SV</th>
+            <th style="text-align:right">Target</th>
+            <th style="text-align:right">Fórmula</th>
+            <th style="text-align:right">IA sugerido</th>
+            <th>Confianza</th>
+            <th>Estado</th>
+            <th>Decisión</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div class="pager" id="pager"></div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div id="modal">
+  <div class="mbox">
+    <button class="mclose" onclick="closeModal()">✕</button>
+    <div id="modal-content"></div>
+  </div>
+</div>
+
+<script>
+// ─── CSV Parser ───────────────────────────────────────────────────────────────
+function parseCSV(text) {
+  text = text.replace(/"PEAK SV\r?\nX MER"/g,'PEAK_SV_X_MER').replace(/"PEAK SV\nX MER"/g,'PEAK_SV_X_MER');
+  const lines = text.split(/\r?\n/).filter(l=>l.trim());
+  if (!lines.length) return [];
+  const delim = lines[0].includes(';') ? ';' : ',';
+  function parseLine(line) {
+    const cols=[]; let cur='',inQ=false;
+    for(let i=0;i<line.length;i++){
+      const c=line[i];
+      if(c==='"'){inQ=!inQ;}
+      else if(c===delim&&!inQ){cols.push(cur.trim());cur='';}
+      else{cur+=c;}
+    }
+    cols.push(cur.trim());
+    return cols;
+  }
+  const headers = parseLine(lines[0]).map(h=>h.replace(/^"|"$/g,'').trim());
+  return lines.slice(1).map(line=>{
+    const vals=parseLine(line);
+    if(vals.length<3) return null;
+    const obj={};
+    headers.forEach((h,j)=>obj[h]=(vals[j]||'').replace(/^"|"$/g,'').trim());
+    return obj;
+  }).filter(Boolean);
+}
+
+// ─── Safe number ──────────────────────────────────────────────────────────────
+function safe(v){
+  if(!v) return 0;
+  const s=String(v).trim().replace(',','.');
+  if(['','-','−','#DIV/0!','#N/A','#VALUE!','#REF!','#NAME?'].includes(s)) return 0;
+  const n=parseFloat(s); return isNaN(n)?0:n;
+}
+
+// ─── Formula logic ────────────────────────────────────────────────────────────
+function calcFormula(r){
+  const peak   = safe(r['PEAK_SV_X_MER']??0);
+  const last2m = safe(r['last_2m_SV']??0);
+  const thisM  = safe(r['this_m_SV']??0);
+  const manual = (r['sv manual']||'').trim();
+  const stock  = safe(r['stock_total']??0);
+  const transit= safe(r['afn_in_transit']??0);
+  const unsell = safe(r['afn_unsellable_quantity']??0);
+  const df2m   = safe(r['days_with_stock_full_2m_mtd']??0);
+  const elapsed= safe(r['Dias transcurridos del mes actual']??0);
+
+  let sv, svSource, svDebug;
+
+  if(manual && ['PEAK','last_2m_SV','this_m_SV'].includes(manual)){
+    const map={PEAK:[peak,'PEAK (manual)'],last_2m_SV:[last2m,'last_2m (manual)'],this_m_SV:[thisM,'this_m (manual)']};
+    [sv,svSource]=map[manual]; svDebug=`Override manual → ${svSource}`;
+  } else {
+    const candidates=[
+      {val:peak,name:'PEAK'},
+      {val:last2m,name:'last_2m'},
+      ...(thisM>0?[{val:thisM,name:'this_m'}]:[]),
+    ].filter(c=>c.val>0);
+
+    if(!candidates.length)
+      return {buy:0,sv:0,svSource:'Sin SV',svDebug:'todos son 0',status:'SV=0',days:0,target:0,peak,last2m,thisM,stock,transit};
+
+    let pool=[...candidates], ruleNote='';
+    if(peak>0&&last2m>0&&peak>last2m*1.5){
+      if(last2m<1){sv=peak;svSource='PEAK (last_2m muy bajo)';svDebug=`PEAK ${peak.toFixed(2)}>last_2m×1.5, last_2m<1 → PEAK`;}
+      else{pool=pool.filter(c=>c.name!=='PEAK');ruleNote=`PEAK outlier excluido`;}
+    }
+    if(sv===undefined){
+      if(!pool.length) return {buy:0,sv:0,svSource:'Sin SV',svDebug:'todos excluidos',status:'SV=0',days:0,target:0,peak,last2m,thisM,stock,transit};
+      const sorted=[...pool].sort((a,b)=>a.val-b.val);
+      const mid=Math.floor(sorted.length/2);
+      const chosen=sorted.length%2!==0?sorted[mid]:sorted[mid-1];
+      sv=chosen.val; svSource=`${chosen.name} (mediana)`;
+      svDebug=`${ruleNote?ruleNote+' · ':''}[${sorted.map(c=>`${c.name}:${c.val.toFixed(2)}`).join(', ')}] → ${chosen.name}`;
+    }
+  }
+
+  sv=Math.max(0,sv||0);
+  if(unsell>0) return {buy:0,sv,svSource,svDebug,status:'BLOQUEADO (unsellable)',days:0,target:0,peak,last2m,thisM,stock,transit};
+  if(sv===0)   return {buy:0,sv,svSource,svDebug,status:'SV=0',days:0,target:0,peak,last2m,thisM,stock,transit};
+
+  const days=sv>=0.5?60:50;
+  const target=sv*days;
+  const total=stock+transit;
+  const buy=Math.max(0,Math.ceil(target-(total-target)));
+  return {buy,sv,svSource,svDebug,status:'OK',days,target,peak,last2m,thisM,stock,transit};
+}
+
+// ─── State ────────────────────────────────────────────────────────────────────
+let ALL=[], filtered=[];
+const PAGE=50; let page=0;
+let analyzing=false, stopFlag=false;
+
+// ─── API Key ──────────────────────────────────────────────────────────────────
+function saveKey(){
+  const k=document.getElementById('api-key').value.trim();
+  if(!k){alert('Ingresá tu API key primero.');return;}
+  localStorage.setItem('anthropic_key',k);
+  document.getElementById('api-key').value=k.slice(0,12)+'...';
+  alert('✅ API key guardada.');
+}
+
+function getKey(){
+  const stored=localStorage.getItem('anthropic_key');
+  if(stored) document.getElementById('api-key').value=stored.slice(0,12)+'...';
+  return stored||'';
+}
+
+// ─── Claude API call ──────────────────────────────────────────────────────────
+async function analyzeWithClaude(sku) {
+  const key = localStorage.getItem('anthropic_key');
+  if(!key) { alert('Primero guardá tu API key de Anthropic.'); return null; }
+
+  const prompt = `Sos un experto en gestión de inventario FBA (Amazon). Analizá este SKU y decidí si se debe comprar y cuántas unidades.
+
+DATOS DEL SKU:
+- SKU: ${sku.sku}
+- Producto: ${sku.name}
+- Stock actual: ${sku.stock} uds
+- En tránsito: ${sku.transit} uds
+- Stock total: ${sku.stock + sku.transit} uds
+- PEAK SV (histórico): ${sku.peak_sv.toFixed(3)} uds/día
+- last_2m SV (últimos 2 meses): ${sku.last_2m_sv.toFixed(3)} uds/día
+- this_m SV (este mes): ${sku.this_m_sv.toFixed(3)} uds/día
+- SV elegida por fórmula: ${sku.sv.toFixed(3)} uds/día (${sku.svSource})
+- Razonamiento SV: ${sku.svDebug}
+- Días objetivo: ${sku.days} días
+- Target de stock: ${sku.target.toFixed(0)} uds
+- Cantidad sugerida por fórmula: ${sku.buy} uds
+- Estado de stock: ${sku.stock_status}
+- Lead time del barco: 60 días
+
+CONTEXTO DEL NEGOCIO:
+- El barco tarda 60 días desde la orden hasta el depósito
+- Se necesita stock para sobrevivir los 60 días de tránsito + un colchón de ${sku.days} días post-arribo
+- La fórmula compra exactamente la diferencia para llegar al target
+- Se usa la mediana de los 3 SV para equilibrio, excluyendo this_m si es 0 y PEAK si es outlier (>1.5x last_2m)
+
+Respondé SOLO en JSON con este formato exacto, sin texto adicional ni markdown:
+{
+  "decision": "COMPRAR" o "NO COMPRAR",
+  "cantidad_sugerida": número entero (0 si no comprar),
+  "confianza": "ALTA" o "MEDIA" o "BAJA",
+  "razonamiento": "2-3 oraciones explicando la decisión en español",
+  "anomalias": ["lista de anomalías detectadas, vacía si no hay ninguna"],
+  "diferencia_formula": "ACUERDO" o "AJUSTE_ARRIBA" o "AJUSTE_ABAJO" o "DESACUERDO",
+  "nota_diferencia": "explicación breve si hay diferencia con la fórmula, vacío si hay acuerdo"
+}`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 600,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error?.message || res.statusText);
+    }
+    const data = await res.json();
+    const text = data.content.map(b=>b.text||'').join('');
+    const clean = text.replace(/```json|```/g,'').trim();
+    return JSON.parse(clean);
+  } catch(e) {
+    console.error('Claude API error:', e);
+    return { error: e.message };
+  }
+}
+
+// ─── File handling ────────────────────────────────────────────────────────────
+function handleDrop(e){
+  e.preventDefault();
+  document.getElementById('upload-zone').classList.remove('drag');
+  const file=e.dataTransfer.files[0];
+  if(file) handleFile(file);
+}
+
+function handleFile(file){
+  if(!file) return;
+  document.getElementById('upload-zone').style.display='none';
+  const reader=new FileReader();
+  reader.onload=e=>{
+    setTimeout(()=>{
+      try{ loadData(parseCSV(e.target.result), file.name); }
+      catch(err){ alert('Error: '+err.message); resetApp(); }
+    },50);
+  };
+  reader.readAsText(file,'ISO-8859-1');
+}
+
+function loadData(rows, fileName){
+  ALL = rows.map(r=>{
+    const calc=calcFormula(r);
+    return {
+      sku:(r['sku']||'').trim(),
+      name:(r['product_name']||'').trim().slice(0,70),
+      stock:safe(r['stock_total']),
+      transit:safe(r['afn_in_transit']),
+      unsellable:safe(r['afn_unsellable_quantity']),
+      peak_sv:safe(r['PEAK_SV_X_MER']??0),
+      last_2m_sv:safe(r['last_2m_SV']??0),
+      this_m_sv:safe(r['this_m_SV']??0),
+      sv_manual:(r['sv manual']||'').trim(),
+      stock_status:(r['stock_status']||'').trim(),
+      ai:null,  // AI result cache
+      ...calc
+    };
+  }).filter(r=>r.sku);
+
+  filtered=ALL;
+  updateStats();
+
+  const sel=document.getElementById('f-st');
+  sel.innerHTML='<option value="">Todos los estados</option>';
+  [...new Set(ALL.map(r=>r.stock_status).filter(Boolean))].sort()
+    .forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent=s;sel.appendChild(o);});
+
+  document.getElementById('main').style.display='block';
+  document.getElementById('btn-reset').style.display='block';
+  render();
+}
+
+function updateStats(){
+  const buyRows=ALL.filter(r=>r.buy>0);
+  const analyzed=ALL.filter(r=>r.ai&&!r.ai.error);
+  document.getElementById('s-total').textContent=ALL.length.toLocaleString('es-AR');
+  document.getElementById('s-buy').textContent=buyRows.length.toLocaleString('es-AR');
+  document.getElementById('s-units').textContent=buyRows.reduce((a,r)=>a+r.buy,0).toLocaleString('es-AR');
+  document.getElementById('s-nobuy').textContent=(ALL.length-buyRows.length).toLocaleString('es-AR');
+  document.getElementById('s-analyzed').textContent=analyzed.length.toLocaleString('es-AR');
+}
+
+function resetApp(){
+  ALL=[];filtered=[];page=0;stopFlag=true;
+  document.getElementById('main').style.display='none';
+  document.getElementById('upload-zone').style.display='block';
+  document.getElementById('btn-reset').style.display='none';
+  document.getElementById('file-input').value='';
+  document.getElementById('search').value='';
+  document.getElementById('progress-wrap').style.display='none';
+  document.getElementById('progress-text').textContent='';
+}
+
+// ─── Filters ──────────────────────────────────────────────────────────────────
+function applyFilters(){
+  const q=document.getElementById('search').value.toLowerCase();
+  const dec=document.getElementById('f-dec').value;
+  const st=document.getElementById('f-st').value;
+  const ai=document.getElementById('f-ai').value;
+  filtered=ALL.filter(r=>{
+    if(q&&!r.sku.toLowerCase().includes(q)&&!r.name.toLowerCase().includes(q)) return false;
+    if(dec==='comprar'&&r.buy<=0) return false;
+    if(dec==='no'&&r.buy>0) return false;
+    if(st&&r.stock_status!==st) return false;
+    if(ai==='pending'&&r.ai) return false;
+    if(ai&&ai!=='pending'&&(!r.ai||r.ai.error||r.ai.confianza!==ai)) return false;
+    return true;
+  });
+  page=0; render();
+}
+['search','f-dec','f-st','f-ai'].forEach(id=>
+  document.getElementById(id).addEventListener('change',applyFilters));
+document.getElementById('search').addEventListener('input',applyFilters);
+
+// ─── Analyze all ──────────────────────────────────────────────────────────────
+async function analyzeAll(){
+  if(!localStorage.getItem('anthropic_key')){ alert('Guardá tu API key primero.'); return; }
+  const targets=ALL.filter(r=>r.buy>0&&!r.ai);
+  if(!targets.length){ alert('Todos los SKUs a comprar ya fueron analizados.'); return; }
+
+  stopFlag=false;
+  document.getElementById('btn-analyze-all').disabled=true;
+  document.getElementById('btn-stop').style.display='block';
+  document.getElementById('progress-wrap').style.display='block';
+
+  for(let i=0;i<targets.length;i++){
+    if(stopFlag) break;
+    const r=targets[i];
+    const pct=Math.round((i/targets.length)*100);
+    document.getElementById('progress-bar').style.width=pct+'%';
+    document.getElementById('progress-text').textContent=`Analizando ${i+1}/${targets.length}: ${r.sku}`;
+
+    r.ai={ _loading:true };
+    render();
+    const result=await analyzeWithClaude(r);
+    r.ai=result||{error:'Sin respuesta'};
+    updateStats();
+    render();
+    // Small delay to avoid rate limiting
+    await new Promise(res=>setTimeout(res,300));
+  }
+
+  document.getElementById('progress-bar').style.width='100%';
+  document.getElementById('progress-text').textContent=stopFlag?'⏹ Detenido':'✅ Análisis completado';
+  document.getElementById('btn-analyze-all').disabled=false;
+  document.getElementById('btn-stop').style.display='none';
+  stopFlag=false;
+}
+
+function stopAnalysis(){ stopFlag=true; }
+
+// ─── Render table ─────────────────────────────────────────────────────────────
+function render(){
+  const slice=filtered.slice(page*PAGE,page*PAGE+PAGE);
+  document.getElementById('tbody').innerHTML=slice.map(r=>{
+    const ai=r.ai;
+    let aiBadge='';
+    if(!ai) aiBadge=`<span class="ai-badge ai-pending">— pendiente</span>`;
+    else if(ai._loading) aiBadge=`<span class="ai-badge ai-loading">⏳ analizando</span>`;
+    else if(ai.error) aiBadge=`<span class="ai-badge ai-low">⚠ error</span>`;
+    else {
+      const cls={ALTA:'ai-high',MEDIA:'ai-med',BAJA:'ai-low'}[ai.confianza]||'ai-pending';
+      aiBadge=`<span class="ai-badge ${cls}">${ai.confianza}</span>`;
+    }
+    const aiQty = ai&&!ai._loading&&!ai.error ? (ai.cantidad_sugerida||0) : '—';
+    return `<tr onclick="openModal('${r.sku}')">
+      <td class="sku-c">${r.sku}</td>
+      <td class="name-c" title="${r.name}">${r.name}</td>
+      <td class="num">${(r.stock+r.transit).toLocaleString('es-AR')}</td>
+      <td class="sv-c">${r.sv.toFixed(2)}</td>
+      <td class="num">${r.target>0?r.target.toFixed(0):'—'}</td>
+      <td class="${r.buy>0?'buy-yes':'buy-no'}">${r.buy>0?r.buy:'—'}</td>
+      <td class="${ai&&!ai._loading&&!ai.error&&aiQty>0?'buy-yes':'buy-no'}">${aiQty}</td>
+      <td>${aiBadge}</td>
+      <td><span class="badge b-st">${r.stock_status||'—'}</span></td>
+      <td><span class="badge ${r.buy>0?'b-buy':'b-no'}">${r.buy>0?'COMPRAR':'NO COMPRAR'}</span></td>
+    </tr>`;
+  }).join('');
+  renderPager();
+}
+
+function renderPager(){
+  const total=Math.ceil(filtered.length/PAGE);
+  const el=document.getElementById('pager');
+  if(total<=1){el.innerHTML=`<span class="pager-info">${filtered.length} resultados</span>`;return;}
+  const s=Math.max(0,page-2),e=Math.min(total-1,page+2);
+  let h=`<span class="pager-info">${filtered.length.toLocaleString('es-AR')} resultados · Pág ${page+1}/${total}</span>`;
+  h+=`<button onclick="goPage(0)">«</button><button onclick="goPage(${page-1})" ${page===0?'disabled':''}>‹</button>`;
+  for(let i=s;i<=e;i++) h+=`<button onclick="goPage(${i})" class="${i===page?'active':''}">${i+1}</button>`;
+  h+=`<button onclick="goPage(${page+1})" ${page===total-1?'disabled':''}>›</button><button onclick="goPage(${total-1})">»</button>`;
+  el.innerHTML=h;
+}
+function goPage(p){page=Math.max(0,Math.min(Math.ceil(filtered.length/PAGE)-1,p));render();window.scrollTo(0,0);}
+
+// ─── Modal ────────────────────────────────────────────────────────────────────
+async function openModal(sku){
+  const r=ALL.find(x=>x.sku===sku);
+  if(!r) return;
+  renderModal(r);
+  document.getElementById('modal').classList.add('open');
+
+  // If not yet analyzed, trigger analysis
+  if(!r.ai){
+    r.ai={_loading:true};
+    renderModal(r);
+    const result=await analyzeWithClaude(r);
+    r.ai=result||{error:'Sin respuesta'};
+    updateStats();
+    render();
+    if(document.getElementById('modal').classList.contains('open')){
+      renderModal(r);
+    }
+  }
+}
+
+function renderModal(r){
+  const ai=r.ai;
+  const W=440, H=88;
+  const maxS=Math.max((r.stock+r.transit)*1.3,r.target*1.8,10);
+  const tx=d=>(d/120)*(W-40)+20;
+  const ty=s=>H-6-((s/maxS)*(H-14));
+  const tY=ty(r.target);
+  let path='';
+  for(let d=0;d<=120;d++) path+=(d===0?'M':'L')+tx(d)+','+ty(Math.max(0,r.stock-r.sv*d));
+  let pathAfter='';
+  const sArr=Math.max(0,r.stock-r.sv*60)+r.buy;
+  for(let d=60;d<=120;d++) pathAfter+=(d===60?'M':'L')+tx(d)+','+ty(Math.max(0,sArr-r.sv*(d-60)));
+  const runout=r.sv>0?r.stock/r.sv:999;
+
+  // SV cards
+  const svCards=[
+    {label:'PEAK SV',val:r.peak_sv,key:'PEAK'},
+    {label:'last_2m SV',val:r.last_2m_sv,key:'last_2m'},
+    {label:'this_m SV',val:r.this_m_sv,key:'this_m'},
+  ].map(s=>{
+    const isChosen=r.svSource.includes(s.key);
+    const isZero=s.val===0;
+    const isPeakOut=s.key==='PEAK'&&r.peak_sv>r.last_2m_sv*1.5&&r.last_2m_sv>=1;
+    const cls=isChosen?'chosen':isZero||isPeakOut?'excluded':'';
+    const col=isChosen?'var(--green)':isZero||isPeakOut?'var(--red)':'var(--text)';
+    const tag=isChosen?'✓ ELEGIDA':isPeakOut?'outlier':isZero?'excluida':'';
+    return `<div class="sv-card ${cls}">
+      <div class="sv-name">${s.label}</div>
+      <div class="sv-num" style="color:${col}">${s.val>0?s.val.toFixed(2):'—'}</div>
+      ${tag?`<div class="sv-tag" style="color:${col}">${tag}</div>`:''}
+    </div>`;
+  }).join('');
+
+  // AI section
+  let aiHtml='';
+  if(!ai){
+    aiHtml=`<div class="ai-box"><div class="ai-box-header">
+      <div class="ai-box-title">🤖 Análisis IA</div>
+    </div><div class="ai-thinking">Iniciando análisis</div></div>`;
+  } else if(ai._loading){
+    aiHtml=`<div class="ai-box"><div class="ai-box-header">
+      <div class="ai-box-title">🤖 Analizando con Claude</div>
+    </div><div class="ai-thinking">Pensando</div></div>`;
+  } else if(ai.error){
+    aiHtml=`<div class="ai-box"><div style="color:var(--red);font-size:11px">⚠ Error: ${ai.error}</div>
+    <button class="btn-ghost" style="margin-top:8px;font-size:10px" onclick="retryAnalysis('${r.sku}')">↩ Reintentar</button></div>`;
+  } else {
+    const confColor={ALTA:'var(--green)',MEDIA:'var(--yellow)',BAJA:'var(--red)'}[ai.confianza]||'var(--muted)';
+    const confPct={ALTA:90,MEDIA:55,BAJA:25}[ai.confianza]||0;
+    const decColor=ai.decision==='COMPRAR'?'var(--green)':'var(--red)';
+    const anomHtml=ai.anomalias&&ai.anomalias.length
+      ? ai.anomalias.map(a=>`<span class="anomaly-chip">⚠ ${a}</span>`).join('')
+      : `<span style="font-size:10px;color:var(--muted)">Ninguna detectada</span>`;
+    const difColor={ACUERDO:'var(--green)',AJUSTE_ARRIBA:'var(--yellow)',AJUSTE_ABAJO:'var(--yellow)',DESACUERDO:'var(--red)'}[ai.diferencia_formula]||'var(--muted)';
+    const difIcon={ACUERDO:'✓',AJUSTE_ARRIBA:'↑',AJUSTE_ABAJO:'↓',DESACUERDO:'✗'}[ai.diferencia_formula]||'?';
+
+    aiHtml=`<div class="ai-box">
+      <div class="ai-box-header">
+        <div class="ai-box-title">🤖 Análisis IA · Claude</div>
+        <span class="badge" style="background:#0d0f1e;color:${decColor};border:1px solid ${decColor}44;font-size:10px">
+          ${ai.decision} · ${ai.cantidad_sugerida} uds
+        </span>
+      </div>
+
+      <div class="conf-bar">
+        <span class="conf-label" style="color:var(--muted)">Confianza</span>
+        <div class="conf-track"><div class="conf-fill" style="width:${confPct}%;background:${confColor}"></div></div>
+        <span class="conf-val" style="color:${confColor}">${ai.confianza}</span>
+      </div>
+
+      <div class="ai-section" style="margin-top:10px">
+        <div class="ai-section-label">💬 Razonamiento</div>
+        <div class="ai-section-text">${ai.razonamiento}</div>
+      </div>
+
+      <div class="ai-section">
+        <div class="ai-section-label">🔍 Anomalías detectadas</div>
+        <div style="margin-top:4px">${anomHtml}</div>
+      </div>
+
+      <div class="ai-section">
+        <div class="ai-section-label">⚖️ vs Fórmula (${r.buy} uds)</div>
+        <div class="ai-section-text" style="border-left-color:${difColor}">
+          <span style="color:${difColor};font-weight:700">${difIcon} ${ai.diferencia_formula}</span>
+          ${ai.nota_diferencia?' — '+ai.nota_diferencia:''}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  document.getElementById('modal-content').innerHTML=`
+    <div style="margin-bottom:12px">
+      <div style="font-size:9px;color:var(--muted);letter-spacing:0.15em;text-transform:uppercase">SKU ${r.sku}</div>
+      <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:var(--text);margin-top:4px;line-height:1.4">${r.name}</div>
+    </div>
+
+    <div class="pillars">
+      <div class="pillar" style="border-color:var(--yellow)">
+        <div class="ptitle" style="color:var(--yellow)">🚢 Cobertura tránsito</div>
+        <div class="pval" style="color:var(--yellow)">${(r.sv*60).toFixed(0)} uds</div>
+        <div class="psub">60 días de barco</div>
+      </div>
+      <div class="pillar" style="border-color:var(--green)">
+        <div class="ptitle" style="color:var(--green)">🛡️ Colchón post-arribo</div>
+        <div class="pval" style="color:var(--green)">${r.days} días</div>
+        <div class="psub">target ${r.target.toFixed(0)} uds</div>
+      </div>
+      <div class="pillar" style="border-color:var(--accent)">
+        <div class="ptitle" style="color:var(--accent)">🧠 SV Elegida</div>
+        <div class="pval" style="color:var(--accent)">${r.sv.toFixed(3)}</div>
+        <div class="psub">${r.svSource}</div>
+      </div>
+      <div class="pillar" style="border-color:${r.buy>0?'var(--green)':'var(--red)'}">
+        <div class="ptitle" style="color:${r.buy>0?'var(--green)':'var(--red)'}">🎯 Fórmula</div>
+        <div class="pval" style="color:${r.buy>0?'var(--green)':'var(--red)'}">${r.buy>0?r.buy+' uds':'NO COMPRAR'}</div>
+        <div class="psub">${r.status}</div>
+      </div>
+    </div>
+
+    <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px">⚖️ Los 3 SV</div>
+    <div class="sv-compare">${svCards}</div>
+    <div style="font-size:10px;color:var(--muted);background:var(--bg3);padding:7px 10px;border-radius:6px;margin-bottom:10px">
+      💬 ${r.svDebug||r.svSource}
+    </div>
+
+    ${aiHtml}
+
+    <div class="chart-box">
+      <div class="chart-lbl">📊 Proyección stock · 120 días</div>
+      <svg width="100%" viewBox="0 0 ${W} ${H+22}">
+        ${[0,30,60,90,120].map(d=>`
+          <line x1="${tx(d)}" y1="6" x2="${tx(d)}" y2="${H}" stroke="var(--border)" stroke-width="1"/>
+          <text x="${tx(d)}" y="${H+13}" text-anchor="middle" fill="var(--muted)" font-size="8">d${d}</text>`).join('')}
+        <line x1="20" y1="${tY}" x2="${W-20}" y2="${tY}" stroke="var(--green)" stroke-width="1" stroke-dasharray="4,3"/>
+        <text x="${W-18}" y="${tY-3}" fill="var(--green)" font-size="8" text-anchor="end">target ${r.target.toFixed(0)}</text>
+        <line x1="${tx(60)}" y1="6" x2="${tx(60)}" y2="${H}" stroke="var(--yellow)" stroke-width="1.5" stroke-dasharray="3,3"/>
+        <text x="${tx(60)+3}" y="16" fill="var(--yellow)" font-size="9">🚢</text>
+        <path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2"/>
+        ${r.buy>0?`<path d="${pathAfter}" fill="none" stroke="var(--green)" stroke-width="2.5"/>`:''}
+        ${runout<=120?`<circle cx="${tx(runout)}" cy="${ty(0)}" r="4" fill="var(--red)"/>`:''}
+        <circle cx="${tx(0)}" cy="${ty(r.stock)}" r="4" fill="var(--accent)"/>
+        ${r.buy>0?`<circle cx="${tx(60)}" cy="${ty(sArr)}" r="5" fill="var(--green)"/>`:''}
+      </svg>
+    </div>`;
+}
+
+async function retryAnalysis(sku){
+  const r=ALL.find(x=>x.sku===sku);
+  if(!r) return;
+  r.ai={_loading:true};
+  renderModal(r);
+  const result=await analyzeWithClaude(r);
+  r.ai=result||{error:'Sin respuesta'};
+  updateStats(); render();
+  if(document.getElementById('modal').classList.contains('open')) renderModal(r);
+}
+
+function closeModal(){ document.getElementById('modal').classList.remove('open'); }
+document.getElementById('modal').addEventListener('click',e=>{ if(e.target===e.currentTarget) closeModal(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
+
+// Init
+getKey();
+</script>
+</body>
+</html>
